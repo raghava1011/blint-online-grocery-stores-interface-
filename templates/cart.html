@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% block content %}
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]>      <html class="no-js"> <!--<![endif]-->
+{% load static %}
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title></title>
+    <meta name="description" content="" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link bg-secondary href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.1/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="" />
+    <style>
+      .item-title{
+        color:red;
+      }
+    </style>
+    <script
+      crossorigin
+      src="https://unpkg.com/react@18/umd/react.development.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"
+    ></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  </head>
+  <body>
+    <div id="products"></div>
+    <script type="text/babel">
+      function ProductsList() {
+        const { useState, useEffect } = React;
+
+        // Check the local storage cart items
+        // Add cart items quantity to the main items <div class="list-group">
+        const localStorageCartItems = JSON.parse(window.localStorage.getItem("cart-items"))
+        console.log(localStorageCartItems)
+        var currentOutletId = localStorageCartItems[0].outlet_id;
+        var [products, setproducts] = useState(
+          localStorageCartItems
+        );
+        var [items, setItems] = useState(products);
+        function addItemToCart(id) {
+          if(currentOutletId != products[0].outlet_id)
+            window.localStorage.removeItem("cart-items");
+          products = products.map((item) => {
+            if (item.id == id) {
+              item.qty = item.qty ?? 0;
+              item.qty = item.qty + 1;
+              return item;
+            } else return item;
+          });
+          setproducts(products);
+          setItems(products);
+
+          window.localStorage.setItem("cart-items", JSON.stringify(products));
+        }
+        function removeItemFromCart(id) {
+          let product = products.filter((item) => item.id == id)[0];
+          product.qty = product.qty - 1;
+          products = products.map((item) => {
+            if (item.id == id) {
+              return product;
+            } else return item;
+          });
+          setproducts(products);
+          setItems(products);
+          window.localStorage.setItem("cart-items", JSON.stringify(products));
+        }
+        async function gotoPayment(){
+          const final_items = JSON.parse(window.localStorage.getItem("cart-items"));
+          console.log(final_items.map(function(item){
+            return{
+              'id':item.id, 'qty':item.qty
+            }
+            }))
+          const response = await fetch('/cart', {
+            method: 'POST',
+            credentials: "same-origin",
+            headers: {
+              'Content-Type': 'application/json',
+              "X-CSRFToken": "E6SniF5gwADob6pDKRIF5roirkOAH86a",
+            },
+            body: JSON.stringify(final_items.map(function(item){
+              return{
+                'id':item.id, 'qty':item.qty, 'outlet_id':item.outlet_id
+              }
+              })) // body data type must match "Content-Type" header
+            
+          });
+          if(response.status==200)
+          window.location="/myorders"
+          window.localStorage.removeItem("cart-items")
+        }
+        const totalAmount = () =>{
+          let finalAmount = 0;
+          const items = JSON.parse(window.localStorage.getItem("cart-items"));
+          items.forEach(item=>{
+            if(item?.price && item?.qty)
+            
+            finalAmount = finalAmount + (item.price * item.qty);
+          })
+          return finalAmount;
+        }
+        return (
+          <>
+            {products.map((item) => {
+              return (
+                item?.qty?
+                  <div class="container m-4">
+                    <table class="table">
+                      <tbody>
+                        <tr>
+                          <td>{item.product_name}</td>
+                          <td align="right">{item.price}</td>
+                          <td align="right">Item total = {item.qty * item.price}</td>
+                          <td align="right">
+                            <div className="item-qty-btn">
+                              <CartButton
+                                id={item.id}
+                                add={addItemToCart}
+                                remove={removeItemFromCart}
+                                metadata={item}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                :<></>
+              );
+            })}
+            {totalAmount() == 0 && <div>
+              <h1>Your Cart is Empty</h1>
+            </div>}
+            <h6 align="right" class="m-5">Cart Total:{totalAmount()}</h6>
+            <button type="button" class="btn btn-primary " onClick={() => gotoPayment()}>Place Order</button>
+          </>
+        );
+      }
+      function CartButton({ id, add, remove, metadata }) {
+        return (
+          <div className="header">
+            {metadata?.qty ? (
+              <div>
+                <button type="button" class="btn" onClick={() => add(id)}>
+                  +
+                </button>
+                <span> {metadata.qty} </span>
+                <button type="button" class="btn" onClick={() => remove(id)}>
+                  -
+                </button>
+              </div>
+            ) : (
+              <button className="btn btn-success" onClick={() => add(id)}>Add to Cart</button>
+            )}
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("products")).render(
+        <ProductsList />
+      );
+    </script>
+  </body>
+</html>
+{% endblock %}
